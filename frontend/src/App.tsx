@@ -1,15 +1,53 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import fieldMap from './data/fieldMap'
-import type { Intuition } from './data/fieldMap'
+import aiAgentRuntimeFieldMap from './data/aiAgentRuntimeFieldMap'
+import type { Intuition, FieldMap } from './data/fieldMap'
 import './App.css'
 
+const MAPS: Record<string, { map: FieldMap; label: string }> = {
+  'self-evolution': { map: fieldMap, label: 'AI 自进化' },
+  'agent-runtime': { map: aiAgentRuntimeFieldMap, label: 'AI Agent Runtime' },
+}
+
+function getMapKeyFromUrl(): string {
+  const params = new URLSearchParams(window.location.search)
+  const key = params.get('map')
+  return key && key in MAPS ? key : 'self-evolution'
+}
+
 function App() {
-  const allIntuitions = new Map<string, Intuition>()
-  for (const r of fieldMap.regions) {
-    for (const i of r.intuitions) {
-      allIntuitions.set(i.id, i)
+  const [mapKey, setMapKey] = useState<string>(() => getMapKeyFromUrl())
+  const activeMap = MAPS[mapKey].map
+
+  const allIntuitions = useMemo(() => {
+    const m = new Map<string, Intuition>()
+    for (const r of activeMap.regions) {
+      for (const i of r.intuitions) {
+        m.set(i.id, i)
+      }
     }
+    return m
+  }, [activeMap])
+
+  const switchMap = (key: string) => {
+    const url = new URL(window.location.href)
+    if (key === 'self-evolution') {
+      url.searchParams.delete('map')
+    } else {
+      url.searchParams.set('map', key)
+    }
+    url.hash = ''
+    window.history.pushState({}, '', url.toString())
+    setMapKey(key)
+    setExpanded(new Set())
+    window.scrollTo({ top: 0 })
   }
+
+  useEffect(() => {
+    const onPopState = () => setMapKey(getMapKeyFromUrl())
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [activeSection, setActiveSection] = useState<string>('')
@@ -44,7 +82,7 @@ function App() {
       { rootMargin: '-60px 0px -70% 0px' }
     )
 
-    const ids = [...fieldMap.regions.map((r) => r.id), 'tensions', 'reading-path']
+    const ids = [...activeMap.regions.map((r) => r.id), 'tensions', 'reading-path']
     for (const id of ids) {
       const el = document.getElementById(id)
       if (el) {
@@ -54,13 +92,13 @@ function App() {
     }
 
     return () => observerRef.current?.disconnect()
-  }, [])
+  }, [activeMap])
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
   const isExpanded = useCallback((id: string) => expanded.has(id), [expanded])
 
   const renderIntuition = (int: Intuition, regionIdx?: number) => {
-    const articles = regionIdx !== undefined ? fieldMap.regions[regionIdx].articles : []
+    const articles = regionIdx !== undefined ? activeMap.regions[regionIdx].articles : []
     return (
       <div key={int.id} className="intuition">
         <span className={`badge ${int.type === 'fact' ? 'badge-fact' : 'badge-opinion'}`}>
@@ -79,14 +117,25 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>{fieldMap.field}</h1>
-        <p className="overview">{fieldMap.overview}</p>
-        <p className="meta">最后更新：{fieldMap.lastUpdated}</p>
+        <div className="map-switcher">
+          {Object.entries(MAPS).map(([key, { label }]) => (
+            <button
+              key={key}
+              className={mapKey === key ? 'map-switch-active' : ''}
+              onClick={() => switchMap(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <h1>{activeMap.field}</h1>
+        <p className="overview">{activeMap.overview}</p>
+        <p className="meta">最后更新：{activeMap.lastUpdated}</p>
       </header>
 
       <nav className="nav">
         <div className="nav-inner">
-          {fieldMap.regions.map((r) => (
+          {activeMap.regions.map((r) => (
             <a
               key={r.id}
               href={`#${r.id}`}
@@ -110,7 +159,7 @@ function App() {
         </div>
       </nav>
 
-      {fieldMap.regions.map((region, ri) => (
+      {activeMap.regions.map((region, ri) => (
         <section key={region.id} id={region.id} className="region">
           <div
             className="region-header"
@@ -183,7 +232,7 @@ function App() {
 
       <section id="tensions" className="tensions">
         <h2>核心争论</h2>
-        {fieldMap.tensions.map((t) => (
+        {activeMap.tensions.map((t) => (
           <div key={t.id} className="tension">
             <div className="question">
               {t.question}
@@ -207,7 +256,7 @@ function App() {
         <h2>阅读路线</h2>
         <div className="path-group">
           <div className="path-label">如果你只有 5 分钟</div>
-          {fieldMap.readingPath.ifYouHave5Min.map((id) => {
+          {activeMap.readingPath.ifYouHave5Min.map((id) => {
             const int = allIntuitions.get(id)
             return int ? (
               <div key={id} className="path-intuition">
@@ -219,7 +268,7 @@ function App() {
         </div>
         <div className="path-group">
           <div className="path-label">如果你有 30 分钟</div>
-          {fieldMap.readingPath.ifYouHave30Min.map((id) => {
+          {activeMap.readingPath.ifYouHave30Min.map((id) => {
             const int = allIntuitions.get(id)
             return int ? (
               <div key={id} className="path-intuition">

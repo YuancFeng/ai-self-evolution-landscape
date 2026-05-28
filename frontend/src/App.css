@@ -4,6 +4,37 @@
   padding: 0 28px 120px;
 }
 
+/* Map switcher */
+.map-switcher {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.map-switcher button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.map-switcher button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.map-switcher button.map-switch-active {
+  background: var(--text-primary);
+  color: var(--bg);
+  border-color: var(--text-primary);
+}
+
 /* Header */
 .header {
   padding: 80px 0 56px;
